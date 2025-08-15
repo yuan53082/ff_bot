@@ -23,7 +23,7 @@ class Countdown(commands.Cog):
     async def send_countdown_message(self):
         now = datetime.now(self.timezone)
         # 如果是早上 10:00 並且分鐘是 0，就發送訊息
-        if now.hour == 00 and now.minute == 10:
+        if now.hour == 00 and now.minute == 20:
             today = date.today()
             days_left = (self.target_date - today).days
             channel = self.bot.get_channel(self.channel_id)
