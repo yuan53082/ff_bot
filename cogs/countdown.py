@@ -24,7 +24,7 @@ class Countdown(commands.Cog):
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"target_date": date_str}, f, ensure_ascii=False, indent=4)
 
-    @commands.command(name="setdate_countdown")
+    @commands.command(name="setdate")
     async def set_date_countdown(self, ctx, date_str: str):
         """設定倒數目標日期"""
         try:
