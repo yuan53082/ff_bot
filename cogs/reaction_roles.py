@@ -9,9 +9,9 @@ load_dotenv()
 logger = logging.getLogger("discord")
 
 # 從 .env 讀取設定並轉型成 int
-GUILD_ID = int(os.getenv("DISCORD_GUILD_ID"))
-CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
-MESSAGE_ID = int(os.getenv("DISCORD_MESSAGE_ID"))
+GUILD_ID = int(os.getenv("REACTION_ROLES_GUILD_ID"))
+CHANNEL_ID = int(os.getenv("REACTION_ROLES_CHANNEL_ID"))
+MESSAGE_ID = int(os.getenv("REACTION_ROLES_MESSAGE_ID"))
 
 # 表情 → 角色對應
 REACTIONROLE_MAP = {
