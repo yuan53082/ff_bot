@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("COUNTDOWN_CHANNEL_ID"))
 CONFIG_FILE = "countdown_config.json"
 
 class Countdown(commands.Cog):
