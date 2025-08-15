@@ -9,7 +9,7 @@ load_dotenv()
 CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
 CONFIG_FILE = "countdown_config.json"
 
-class Countdown(commands.Cog):
+class Lab(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.target_date = self.load_date()
@@ -58,4 +58,4 @@ class Countdown(commands.Cog):
                 await channel.send("⚠️ 尚未設定目標日期，請使用 `!setdate YYYY-MM-DD` 設定")
 
 async def setup(bot):
-    await bot.add_cog(Countdown(bot))
+    await bot.add_cog(Lab(bot))
