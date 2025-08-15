@@ -48,6 +48,10 @@ class Countdown(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
+        channel = self.bot.get_channel(CHANNEL_ID)
+        if self.target_date is None and channel:
+            await channel.send("⚠️ 尚未設定目標日期，請使用 `!lab_setdate YYYY-MM-DD` 設定")
+
         if not self.daily_countdown_task.is_running():
             self.daily_countdown_task.start()
 
