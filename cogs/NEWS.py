@@ -4,7 +4,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 import os
 
-CHANNEL_ID = int(os.getenv("NEWS_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
 
 class FFXIVNews(commands.Cog):
     def __init__(self, bot):

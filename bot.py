@@ -4,6 +4,7 @@ import os
 import asyncio
 from dotenv import load_dotenv
 import logging
+import asyncio
 
 load_dotenv()
 
@@ -30,7 +31,7 @@ async def on_ready():
     logger.info(f"目前可用指令: {command_names}")
 
 # ---------- 重載 Cog 指令 ----------
-@bot.command(name="reload")
+@bot.command(name="re")
 @commands.is_owner()
 async def reload_cog(ctx, cog_name: str):
     try:
@@ -66,4 +67,8 @@ async def main():
     await bot.start(os.getenv("DISCORD_TOKEN"))
 
 # ---------- 啟動 ----------
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("✅ 程式已手動停止")
