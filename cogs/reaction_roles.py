@@ -7,8 +7,8 @@ from discord.ext import commands
 
 
 # 從 .env 讀取設定並轉型成 int
-GUILD_ID = int(os.getenv("REACTION_ROLES_GUILD_ID"))
-CHANNEL_ID = int(os.getenv("REACTION_ROLES_CHANNEL_ID"))
+SERVER_ID = int(os.getenv("SERVER_ID"))
+CHANNEL_ID = int(os.getenv("WELCOME_CHANNEL_ID"))
 MESSAGE_ID = int(os.getenv("REACTION_ROLES_MESSAGE_ID"))
 logger = logging.getLogger("init")
 
@@ -34,7 +34,7 @@ class ReactionRoles(commands.Cog):
             role_id = REACTIONROLE_MAP.get(emoji_key)
 
             if role_id:
-                guild = self.bot.get_guild(GUILD_ID)
+                guild = self.bot.get_guild(SERVER_ID)
                 if not guild:
                     return
 
@@ -63,7 +63,7 @@ class ReactionRoles(commands.Cog):
             role_id = REACTIONROLE_MAP.get(emoji_key)
 
             if role_id:
-                guild = self.bot.get_guild(GUILD_ID)
+                guild = self.bot.get_guild(SERVER_ID)
                 if not guild:
                     return
 

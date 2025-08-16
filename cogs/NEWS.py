@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 import discord
 import json
 
-CHANNEL_ID = int(os.getenv("NEWS_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
 logger = logging.getLogger("init")
 DATA_FILE = "latest_news.json"  # 存最後公告的檔案
 
