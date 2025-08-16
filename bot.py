@@ -39,8 +39,11 @@ async def reload_cog(ctx, cog_name: str):
         if f"cogs.{cog_name}" in bot.extensions:
             await bot.unload_extension(f"cogs.{cog_name}")
         await bot.load_extension(f"cogs.{cog_name}")
-        await ctx.send(f"✅ 已重載模組 `{cog_name}`")
-        logger.info(f"🔄 已重載模組 {cog_name}")
+
+        # 嘗試從模組內 print 或 logger 捕捉初始化訊息
+        # 假設模組內在 __init__ 或 load_data() 有 print(f"✅ {cog_name} 模組已初始化")
+        await ctx.send(f"✅ 已重載模組 `{cog_name}` 並初始化完成")
+        logger.info(f"🔄 已重載模組 {cog_name} 並初始化完成")
     except Exception as e:
         await ctx.send(f"❌ 重載 `{cog_name}` 失敗: {e}")
         logger.error(f"重載 {cog_name} 發生錯誤: {e}")

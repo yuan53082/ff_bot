@@ -3,15 +3,14 @@ import os
 import logging
 import traceback
 from discord.ext import commands
-from dotenv import load_dotenv
 
-load_dotenv()
-logger = logging.getLogger("discord")
+
 
 # 從 .env 讀取設定並轉型成 int
 GUILD_ID = int(os.getenv("REACTION_ROLES_GUILD_ID"))
 CHANNEL_ID = int(os.getenv("REACTION_ROLES_CHANNEL_ID"))
 MESSAGE_ID = int(os.getenv("REACTION_ROLES_MESSAGE_ID"))
+logger = logging.getLogger("init")
 
 # 表情 → 角色對應
 REACTIONROLE_MAP = {
@@ -23,6 +22,7 @@ REACTIONROLE_MAP = {
 class ReactionRoles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):

@@ -4,11 +4,15 @@ from datetime import datetime, date, time
 import json
 import os
 import asyncio
+import pytz
+import logging
 
 CONFIG_FILE = "countdown.json"
 CHANNEL_ID = int(os.getenv("COUNTDOWN_CHANNEL_ID"))
-TARGET_HOUR = 15
-TARGET_MINUTE = 33
+TARGET_HOUR = 10
+TARGET_MINUTE = 0
+tz = pytz.timezone("Asia/Taipei") # 設定時區
+logger = logging.getLogger("init")  # 或自定義 logger 名稱
 
 class Countdown(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +22,7 @@ class Countdown(commands.Cog):
         self.task_started = False
         self.task = None
         self.load_data()
+        logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
 
     # 載入目標日期與最後發送日期
     def load_data(self):
@@ -67,8 +72,8 @@ class Countdown(commands.Cog):
 
         while not self.bot.is_closed():
             try:
-                now = datetime.now()
-                target_time_today = datetime.combine(now.date(), time(TARGET_HOUR, TARGET_MINUTE))
+                now = datetime.now(tz)
+                target_time_today = datetime.combine(now.date(), time(TARGET_HOUR, TARGET_MINUTE, tzinfo=tz))
 
                 # 如果當天已過指定時間，且尚未發送訊息
                 if now >= target_time_today and self.last_sent_date != now.date():
