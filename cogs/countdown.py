@@ -72,10 +72,13 @@ class Countdown(commands.Cog):
     @tasks.loop(minutes=1, reconnect=True)
     async def countdown_loop(self):
         if not self.target_date:
+            logger.info(f"⚠️ {self.__class__.__name__} target_date 尚未設定")
+            await channel.send("⚠️ 目標日期尚未設定，請使用指令 `!setdate YYYY-MM-DD` 來設定倒數日期")
             return
 
         channel = self.bot.get_channel(CHANNEL_ID)
         if not channel:
+            logger.warning(f"⚠️ 找不到頻道 ID={CHANNEL_ID}")
             return
 
         now = datetime.now(tz)
@@ -99,7 +102,7 @@ class Countdown(commands.Cog):
     async def before_countdown_loop(self):
         logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 準備啟動，等待 bot ready...")
         await self.bot.wait_until_ready()
-        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 已啟動")
+        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 已啟動(before loop)")
 
     @countdown_loop.error
     async def countdown_loop_error(self, error):
@@ -111,4 +114,4 @@ async def setup(bot):
     # 在此啟動 loop，before_loop 會自動等待 bot ready
     if not cog.countdown_loop.is_running():
         cog.countdown_loop.start()
-        logger.info(f"🔄 {cog.__class__.__name__} 倒數 loop 已啟動")
+        logger.info(f"🔄 {cog.__class__.__name__} 倒數 loop 已啟動(setup)")

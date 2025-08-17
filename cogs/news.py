@@ -27,14 +27,24 @@ class News(commands.Cog):
             logger.info("🛑 News loop 已取消")
 
     def load_latest_url(self):
-        if os.path.exists(DATA_FILE):
+    # 如果檔案不存在，建立一個初始檔案
+        if not os.path.exists(DATA_FILE):
             try:
-                with open(DATA_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return data.get("latest_url")
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"latest_url": None}, f, ensure_ascii=False, indent=2)
+                logger.info(f"ℹ️ {self.__class__.__name__} JSON 檔案不存在，已建立初始檔案")
             except Exception as e:
-                logger.error(f"❌ {self.__class__.__name__} 讀取最新公告檔案失敗: {e}")
-        return None
+                logger.error(f"❌ {self.__class__.__name__} 建立初始 JSON 檔案失敗: {e}")
+            return None
+        
+        # 如果檔案存在，讀取內容
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("latest_url")
+        except Exception as e:
+            logger.error(f"❌ {self.__class__.__name__} 讀取最新公告檔案失敗: {e}")
+            return None
 
     def save_latest_url(self, url):
         try:
@@ -68,6 +78,7 @@ class News(commands.Cog):
     async def news_loop(self):
         channel = self.bot.get_channel(CHANNEL_ID)
         if not channel:
+            logger.warning(f"⚠️ 找不到頻道 ID={CHANNEL_ID}")
             return
     
         now = datetime.now(tz)
