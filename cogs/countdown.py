@@ -1,9 +1,8 @@
 import discord
-from discord.ext import commands
-from datetime import datetime, date, time
+from discord.ext import commands, tasks
+from datetime import datetime, date, time, timedelta
 import json
 import os
-import asyncio
 import pytz
 import logging
 
@@ -11,20 +10,22 @@ CONFIG_FILE = "countdown.json"
 CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
 TARGET_HOUR = 10
 TARGET_MINUTE = 0
-tz = pytz.timezone("Asia/Taipei") # 設定時區
-logger = logging.getLogger("init")  # 或自定義 logger 名稱
+tz = pytz.timezone("Asia/Taipei")
+logger = logging.getLogger("init")
 
 class Countdown(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.target_date = None
         self.last_sent_date = None
-        self.task_started = False
-        self.task = None
         self.load_data()
-        logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
+        self.countdown_loop.start()
+        logger.info(f"✅ {self.__class__.__name__} 模組已初始化，倒數 loop 已啟動")
 
-    # 載入目標日期與最後發送日期
+    def cog_unload(self):
+        self.countdown_loop.cancel()
+
+    # 載入設定
     def load_data(self):
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -36,7 +37,7 @@ class Countdown(commands.Cog):
                 if last_sent_str:
                     self.last_sent_date = datetime.strptime(last_sent_str, "%Y-%m-%d").date()
 
-    # 儲存目標日期與最後發送日期
+    # 儲存設定
     def save_data(self):
         data = {
             "target_date": self.target_date.strftime("%Y-%m-%d") if self.target_date else None,
@@ -50,64 +51,47 @@ class Countdown(commands.Cog):
         try:
             new_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             self.target_date = new_date
-            self.last_sent_date = None  # 重設最後發送日期
-            # 存檔，包含 target_date 與 last_sent_date
-            data = {
-                "target_date": self.target_date.strftime("%Y-%m-%d"),
-                "last_sent_date": None
-            }
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+            self.last_sent_date = None
+            self.save_data()
 
             days_left = (self.target_date - date.today()).days
             await ctx.send(f"✅ 目標日期已設定為 {new_date}（剩下 {days_left} 天）")
         except ValueError:
             await ctx.send("❌ 日期格式錯誤，請使用 YYYY-MM-DD")
 
-    async def countdown_task(self):
+    # 倒數任務（每分鐘檢查一次）
+    @tasks.loop(minutes=1, reconnect=True)
+    async def countdown_loop(self):
         await self.bot.wait_until_ready()
         channel = self.bot.get_channel(CHANNEL_ID)
-        if self.target_date is None or channel is None:
+        if not channel or not self.target_date:
             return
 
-        while not self.bot.is_closed():
-            try:
-                now = datetime.now(tz)
-                target_time_today = datetime.combine(now.date(), time(TARGET_HOUR, TARGET_MINUTE, tzinfo=tz))
+        now = datetime.now(tz)
+        target_time_today = datetime.combine(now.date(), time(TARGET_HOUR, TARGET_MINUTE, tzinfo=tz))
 
-                # 如果當天已過指定時間，且尚未發送訊息
-                if now >= target_time_today and self.last_sent_date != now.date():
-                    if now.date() < self.target_date:
-                        days_left = (self.target_date - now.date()).days
-                        await channel.send(f"📅 距離 FFXIV EA開服 還有 {days_left} 天")
-                    elif now.date() == self.target_date:
-                        await channel.send(f"🎉 耶！FFXIV EA開服啦！")
-                        # 到期後停止任務
-                        self.last_sent_date = now.date()
-                        self.save_data()
-                        break
-                    self.last_sent_date = now.date()
-                    self.save_data()
+        logger.info(f"⏰ 倒數檢查中：{now}, target_time_today={target_time_today}, last_sent={self.last_sent_date}")
 
-                await asyncio.sleep(1)  # 每秒檢查一次
-            except Exception as e:
-                print(f"⚠️ 倒數任務發生錯誤: {e}")
-                await asyncio.sleep(5)
+        # 如果今天還沒發送，而且時間已到 / 錯過
+        if now >= target_time_today and self.last_sent_date != now.date():
+            if now.date() < self.target_date:
+                days_left = (self.target_date - now.date()).days
+                await channel.send(f"📅 距離 FFXIV EA開服 還有 {days_left} 天")
+            elif now.date() == self.target_date:
+                await channel.send("🎉 耶！FFXIV EA開服啦！")
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        if self.task_started:
-            return
-        self.task_started = True
-        channel = self.bot.get_channel(CHANNEL_ID)
-        if self.target_date is None and channel:
-            await channel.send("⚠️ 尚未設定目標日期，請使用 `!setdate YYYY-MM-DD` 設定")
-            return
+            self.last_sent_date = now.date()
+            self.save_data()
+            logger.info(f"✅ 倒數訊息已發送，日期：{self.last_sent_date}")
 
-        # 如果今天還沒發過訊息且目標日期沒過，啟動倒數任務
-        today = date.today()
-        if self.target_date and (self.last_sent_date != today) and (today <= self.target_date):
-            self.task = self.bot.loop.create_task(self.countdown_task())
+    @countdown_loop.before_loop
+    async def before_countdown_loop(self):
+        logger.info("🔄 倒數 loop 準備啟動，等待 bot ready...")
+        await self.bot.wait_until_ready()
+
+    @countdown_loop.error
+    async def countdown_loop_error(self, error):
+        logger.error(f"❌ 倒數 loop 發生錯誤: {error}")
 
 async def setup(bot):
     await bot.add_cog(Countdown(bot))
