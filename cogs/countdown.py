@@ -111,3 +111,4 @@ async def setup(bot):
     # 在此啟動 loop，before_loop 會自動等待 bot ready
     if not cog.countdown_loop.is_running():
         cog.countdown_loop.start()
+        logger.info(f"🔄 {cog.__class__.__name__} 倒數 loop 已啟動")
