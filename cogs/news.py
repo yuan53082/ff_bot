@@ -1,57 +1,42 @@
+import discord
+from discord.ext import commands, tasks
 from datetime import datetime
 import logging
 import os
 import aiohttp
 from bs4 import BeautifulSoup
-from discord.ext import commands, tasks
-import discord
 import json
 import pytz
 
-CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
 logger = logging.getLogger("discord")
-DATA_FILE = "latest_news.json"  # 存最後公告的檔案
-tz = tz = pytz.timezone("Asia/Taipei")
+DATA_FILE = "latest_news.json"
+tz = pytz.timezone("Asia/Taipei")
 
 
 class News(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.latest_url = self.load_latest_url()  # 從 JSON 讀取
+        self.latest_url = self.load_latest_url()
         logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
 
     def cog_unload(self):
-        # reload 或卸載時停止 loop
         if self.news_loop.is_running():
             self.news_loop.cancel()
             logger.info("🛑 News loop 已取消")
 
     def load_latest_url(self):
-    # 如果檔案不存在，建立一個初始檔案
         if not os.path.exists(DATA_FILE):
-            try:
-                with open(DATA_FILE, "w", encoding="utf-8") as f:
-                    json.dump({"latest_url": None}, f, ensure_ascii=False, indent=2)
-                logger.info(f"ℹ️ {self.__class__.__name__} JSON 檔案不存在，已建立初始檔案")
-            except Exception as e:
-                logger.error(f"❌ {self.__class__.__name__} 建立初始 JSON 檔案失敗: {e}")
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump({"latest_url": None}, f, ensure_ascii=False, indent=2)
             return None
-        
-        # 如果檔案存在，讀取內容
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data.get("latest_url")
-        except Exception as e:
-            logger.error(f"❌ {self.__class__.__name__} 讀取最新公告檔案失敗: {e}")
-            return None
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("latest_url")
 
     def save_latest_url(self, url):
-        try:
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump({"latest_url": url}, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"❌ {self.__class__.__name__} 儲存最新公告檔案失敗: {e}")
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump({"latest_url": url}, f, ensure_ascii=False, indent=2)
 
     async def fetch_latest_news(self):
         url = "https://www.ffxiv.com.tw/web/index.aspx"
@@ -60,7 +45,6 @@ class News(commands.Cog):
                 async with session.get(url) as resp:
                     html = await resp.text()
             soup = BeautifulSoup(html, "html.parser")
-
             latest_item = soup.select_one(".nav_news .sub_nav ul li a p")
             if latest_item:
                 link_tag = latest_item.parent
@@ -70,25 +54,25 @@ class News(commands.Cog):
                     link = "https://www.ffxiv.com.tw" + link
                 return title, link
         except Exception as e:
-            logger.error(f"❌ {self.__class__.__name__} 抓取最新公告時發生錯誤: {e}")
+            logger.error(f"❌ 抓取最新公告時發生錯誤: {e}")
         return None, None
 
-    # ---------- Loop ----------
-    @tasks.loop(minutes=10, reconnect=True)
+    @tasks.loop(minutes=1, reconnect=True)
     async def news_loop(self):
+        await self.bot.wait_until_ready()
         channel = self.bot.get_channel(CHANNEL_ID)
         if not channel:
-            logger.warning(f"⚠️ 找不到頻道 ID={CHANNEL_ID}")
             return
     
-        now = datetime.now(tz)
-        logger.info(f"⏰ {self.__class__.__name__} 檢查中：{now}, 最新公告 URL={self.latest_url}")
+        # 🔄 每次檢查時重新讀 JSON，避免外部手動修改後 bot 不知道
+        self.latest_url = self.load_latest_url()
     
         title, latest = await self.fetch_latest_news()
+        logger.info(f"⏰ 正在檢查最新公告, 最新 URL={self.latest_url}")
+    
         if latest and latest != self.latest_url:
             self.latest_url = latest
-            self.save_latest_url(latest)  # 更新 JSON
-    
+            self.save_latest_url(latest)
             embed = discord.Embed(
                 title="📰 最新公告",
                 description=title,
@@ -97,28 +81,25 @@ class News(commands.Cog):
             )
             embed.set_footer(text="資料來源: FFXIV 繁體中文版官方網站")
             await channel.send(embed=embed)
-            logger.info(f"✅ 發送最新公告訊息：{latest}")
+            logger.info(f"✅ 發送最新公告：{latest}")
 
     @news_loop.before_loop
     async def before_news_loop(self):
-        logger.info(f"🔄 {self.__class__.__name__} loop 準備啟動，等待 bot ready...")
+        logger.info(f"🔄 News loop 準備啟動，等待 bot ready...")
         await self.bot.wait_until_ready()
-        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 已啟動")
+        logger.info(f"🔄 News loop 已啟動")
 
     @news_loop.error
     async def news_loop_error(self, error):
-        logger.error(f"❌ {self.__class__.__name__} loop 發生錯誤: {error}")
+        logger.error(f"❌ News loop 發生錯誤: {error}")
 
-    # ---------- 手動抓取指令 ----------
     @commands.command(name="news")
     async def debug_news(self, ctx):
-        """手動抓取最新公告"""
         title, latest = await self.fetch_latest_news()
         if latest:
             if latest != self.latest_url:
                 self.latest_url = latest
                 self.save_latest_url(latest)
-
             embed = discord.Embed(
                 title="📰 最新公告",
                 description=title,
@@ -130,11 +111,9 @@ class News(commands.Cog):
         else:
             await ctx.send("❌ 沒找到最新公告")
 
-# ---------- Cog Setup ----------
+
 async def setup(bot):
     cog = News(bot)
     await bot.add_cog(cog)
-    # 在此啟動 loop，before_loop 會自動等待 bot ready
     if not cog.news_loop.is_running():
         cog.news_loop.start()
-        logger.info(f"🔄 {cog.__class__.__name__} 倒數 loop 已啟動")

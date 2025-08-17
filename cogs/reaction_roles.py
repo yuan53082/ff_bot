@@ -10,7 +10,7 @@ from discord.ext import commands
 SERVER_ID = int(os.getenv("SERVER_ID"))
 CHANNEL_ID = int(os.getenv("WELCOME_CHANNEL_ID"))
 MESSAGE_ID = int(os.getenv("REACTION_ROLES_MESSAGE_ID"))
-logger = logging.getLogger("init")
+logger = logging.getLogger("discord")
 
 # 表情 → 角色對應
 REACTIONROLE_MAP = {

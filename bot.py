@@ -4,7 +4,6 @@ import os
 import asyncio
 from dotenv import load_dotenv
 import logging
-import asyncio
 
 load_dotenv()
 
@@ -26,22 +25,19 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     logger.info(f"✅ Bot 已登入為 {bot.user} (ID: {bot.user.id})")
-    # 列出所有可用指令名稱
     command_names = [c for c in bot.all_commands]
     logger.info(f"目前可用指令: {command_names}")
+    logger.info("📌 所有 cog 的第一次檢查將在各自 loop 中自動執行")
 
 # ---------- 重載 Cog 指令 ----------
 @bot.command(name="re")
 @commands.is_owner()
 async def reload_cog(ctx, cog_name: str):
     try:
-        # 卸載再載入
         if f"cogs.{cog_name}" in bot.extensions:
             await bot.unload_extension(f"cogs.{cog_name}")
+            logger.info(f"🔄 已卸載模組 {cog_name}")
         await bot.load_extension(f"cogs.{cog_name}")
-
-        # 嘗試從模組內 print 或 logger 捕捉初始化訊息
-        # 假設模組內在 __init__ 或 load_data() 有 print(f"✅ {cog_name} 模組已初始化")
         await ctx.send(f"✅ 已重載模組 `{cog_name}` 並初始化完成")
         logger.info(f"🔄 已重載模組 {cog_name} 並初始化完成")
     except Exception as e:
@@ -65,9 +61,11 @@ async def load_cogs():
 # ---------- 非同步主程式 ----------
 async def main():
     await load_cogs()
-    # 延遲確保 task 安全啟動
-    await asyncio.sleep(1)
-    await bot.start(os.getenv("DISCORD_TOKEN"))
+    logger.info("📌 所有 cog 已載入完成，Bot 將開始啟動")
+    try:
+        await bot.start(os.getenv("DISCORD_TOKEN"))
+    except Exception as e:
+        logger.error(f"❌ Bot 啟動發生錯誤: {e}")
 
 # ---------- 啟動 ----------
 if __name__ == "__main__":
