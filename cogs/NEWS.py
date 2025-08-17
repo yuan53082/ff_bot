@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import os
 import aiohttp
@@ -5,6 +6,7 @@ from bs4 import BeautifulSoup
 from discord.ext import commands, tasks
 import discord
 import json
+import pytz
 
 CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
 logger = logging.getLogger("init")
@@ -15,16 +17,15 @@ class News(commands.Cog):
         self.bot = bot
         self.latest_url = self.load_latest_url()  # 從 JSON 讀取
         logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
-        
+
         # 啟動 loop
-        if not self.check_news.is_running():
-            self.check_news.start()
-            logger.info("🔄 News loop 已啟動")
+        if not self.news_loop.is_running():
+            self.news_loop.start()
 
     def cog_unload(self):
         # reload 或卸載時停止 loop
-        if self.check_news.is_running():
-            self.check_news.cancel()
+        if self.news_loop.is_running():
+            self.news_loop.cancel()
             logger.info("🛑 News loop 已取消")
 
     def load_latest_url(self):
@@ -64,17 +65,21 @@ class News(commands.Cog):
             logger.error(f"❌ 抓取最新公告時發生錯誤: {e}")
         return None, None
 
-    @tasks.loop(minutes=10)
-    async def check_news(self):
+    # ---------- Loop ----------
+    @tasks.loop(minutes=10, reconnect=True)
+    async def news_loop(self):
         channel = self.bot.get_channel(CHANNEL_ID)
         if not channel:
             return
-
+    
+        now = datetime.now(pytz.timezone("Asia/Taipei"))
+        logger.info(f"⏰ News 檢查中：{now}, 最新公告 URL={self.latest_url}")
+    
         title, latest = await self.fetch_latest_news()
         if latest and latest != self.latest_url:
             self.latest_url = latest
             self.save_latest_url(latest)  # 更新 JSON
-
+    
             embed = discord.Embed(
                 title="📰 最新公告",
                 description=title,
@@ -83,13 +88,24 @@ class News(commands.Cog):
             )
             embed.set_footer(text="資料來源: FFXIV 繁體中文版官方網站")
             await channel.send(embed=embed)
+            logger.info(f"✅ 發送最新公告訊息：{latest}")
 
+    @news_loop.before_loop
+    async def before_news_loop(self):
+        logger.info("🔄 News loop 準備啟動，等待 bot ready...")
+        await self.bot.wait_until_ready()
+        logger.info("🔄 News 倒數 loop 已啟動")
+
+    @news_loop.error
+    async def news_loop_error(self, error):
+        logger.error(f"❌ News loop 發生錯誤: {error}")
+
+    # ---------- 手動抓取指令 ----------
     @commands.command(name="news")
     async def debug_news(self, ctx):
         """手動抓取最新公告"""
         title, latest = await self.fetch_latest_news()
         if latest:
-            # 更新 JSON 避免手動抓也重複發送
             if latest != self.latest_url:
                 self.latest_url = latest
                 self.save_latest_url(latest)
@@ -105,5 +121,6 @@ class News(commands.Cog):
         else:
             await ctx.send("❌ 沒找到最新公告")
 
+# ---------- Cog Setup ----------
 async def setup(bot):
     await bot.add_cog(News(bot))

@@ -97,9 +97,9 @@ class Countdown(commands.Cog):
     # 在 loop 啟動前確保 bot ready
     @countdown_loop.before_loop
     async def before_countdown_loop(self):
-        logger.info("🔄 倒數 loop 準備啟動，等待 bot ready...")
+        logger.info("🔄 Countdown 倒數 loop 準備啟動，等待 bot ready...")
         await self.bot.wait_until_ready()
-        logger.info("🔄 倒數 loop 已啟動")
+        logger.info("🔄 Countdown 倒數 loop 已啟動")
 
     @countdown_loop.error
     async def countdown_loop_error(self, error):
