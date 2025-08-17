@@ -109,4 +109,5 @@ async def setup(bot):
     cog = Countdown(bot)
     await bot.add_cog(cog)
     # 在此啟動 loop，before_loop 會自動等待 bot ready
-    cog.countdown_loop.start()
+    if not cog.countdown_loop.is_running():
+        cog.countdown_loop.start()

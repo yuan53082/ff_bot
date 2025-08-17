@@ -20,10 +20,6 @@ class News(commands.Cog):
         self.latest_url = self.load_latest_url()  # 從 JSON 讀取
         logger.info(f"✅ {self.__class__.__name__} 模組已初始化")
 
-        # 啟動 loop
-        if not self.news_loop.is_running():
-            self.news_loop.start()
-
     def cog_unload(self):
         # reload 或卸載時停止 loop
         if self.news_loop.is_running():
@@ -128,5 +124,6 @@ async def setup(bot):
     cog = News(bot)
     await bot.add_cog(cog)
     # 在此啟動 loop，before_loop 會自動等待 bot ready
-    cog.news_loop.start()
+    if not cog.news_loop.is_running():
+        cog.news_loop.start()
 
