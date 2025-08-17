@@ -9,8 +9,10 @@ import json
 import pytz
 
 CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
-logger = logging.getLogger("init")
+logger = logging.getLogger("discord")
 DATA_FILE = "latest_news.json"  # 存最後公告的檔案
+tz = tz = pytz.timezone("Asia/Taipei")
+
 
 class News(commands.Cog):
     def __init__(self, bot):
@@ -35,7 +37,7 @@ class News(commands.Cog):
                     data = json.load(f)
                     return data.get("latest_url")
             except Exception as e:
-                logger.error(f"❌ 讀取最新公告檔案失敗: {e}")
+                logger.error(f"❌ {self.__class__.__name__} 讀取最新公告檔案失敗: {e}")
         return None
 
     def save_latest_url(self, url):
@@ -43,7 +45,7 @@ class News(commands.Cog):
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump({"latest_url": url}, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.error(f"❌ 儲存最新公告檔案失敗: {e}")
+            logger.error(f"❌ {self.__class__.__name__} 儲存最新公告檔案失敗: {e}")
 
     async def fetch_latest_news(self):
         url = "https://www.ffxiv.com.tw/web/index.aspx"
@@ -62,7 +64,7 @@ class News(commands.Cog):
                     link = "https://www.ffxiv.com.tw" + link
                 return title, link
         except Exception as e:
-            logger.error(f"❌ 抓取最新公告時發生錯誤: {e}")
+            logger.error(f"❌ {self.__class__.__name__} 抓取最新公告時發生錯誤: {e}")
         return None, None
 
     # ---------- Loop ----------
@@ -72,8 +74,8 @@ class News(commands.Cog):
         if not channel:
             return
     
-        now = datetime.now(pytz.timezone("Asia/Taipei"))
-        logger.info(f"⏰ News 檢查中：{now}, 最新公告 URL={self.latest_url}")
+        now = datetime.now(tz)
+        logger.info(f"⏰ {self.__class__.__name__} 檢查中：{now}, 最新公告 URL={self.latest_url}")
     
         title, latest = await self.fetch_latest_news()
         if latest and latest != self.latest_url:
@@ -92,13 +94,13 @@ class News(commands.Cog):
 
     @news_loop.before_loop
     async def before_news_loop(self):
-        logger.info("🔄 News loop 準備啟動，等待 bot ready...")
+        logger.info(f"🔄 {self.__class__.__name__} loop 準備啟動，等待 bot ready...")
         await self.bot.wait_until_ready()
-        logger.info("🔄 News 倒數 loop 已啟動")
+        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 已啟動")
 
     @news_loop.error
     async def news_loop_error(self, error):
-        logger.error(f"❌ News loop 發生錯誤: {error}")
+        logger.error(f"❌ {self.__class__.__name__} loop 發生錯誤: {error}")
 
     # ---------- 手動抓取指令 ----------
     @commands.command(name="news")
@@ -123,4 +125,8 @@ class News(commands.Cog):
 
 # ---------- Cog Setup ----------
 async def setup(bot):
-    await bot.add_cog(News(bot))
+    cog = News(bot)
+    await bot.add_cog(cog)
+    # 在此啟動 loop，before_loop 會自動等待 bot ready
+    cog.news_loop.start()
+

@@ -11,7 +11,7 @@ CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
 TARGET_HOUR = 10
 TARGET_MINUTE = 0
 tz = pytz.timezone("Asia/Taipei")
-logger = logging.getLogger("init")
+logger = logging.getLogger("discord")
 
 class Countdown(commands.Cog):
     def __init__(self, bot):
@@ -27,7 +27,7 @@ class Countdown(commands.Cog):
     def cog_unload(self):
         if self.countdown_loop.is_running():
             self.countdown_loop.cancel()
-            logger.info("🛑 倒數 loop 已取消")
+            logger.info(f"🛑 {self.__class__.__name__} 倒數 loop 已取消")
 
     # 載入設定
     def load_data(self):
@@ -42,7 +42,7 @@ class Countdown(commands.Cog):
                     if last_sent_str:
                         self.last_sent_date = datetime.strptime(last_sent_str, "%Y-%m-%d").date()
             except Exception as e:
-                logger.error(f"❌ 讀取設定檔失敗: {e}")
+                logger.error(f"❌ {self.__class__.__name__} 讀取設定檔失敗: {e}")
 
     # 儲存設定
     def save_data(self):
@@ -54,7 +54,7 @@ class Countdown(commands.Cog):
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
         except Exception as e:
-            logger.error(f"❌ 儲存設定檔失敗: {e}")
+            logger.error(f"❌ {self.__class__.__name__} 儲存設定檔失敗: {e}")
 
     @commands.command(name="setdate")
     async def set_date_countdown(self, ctx, date_str: str):
@@ -81,7 +81,7 @@ class Countdown(commands.Cog):
         now = datetime.now(tz)
         target_time_today = datetime.combine(now.date(), time(TARGET_HOUR, TARGET_MINUTE, tzinfo=tz))
 
-        logger.info(f"⏰ 倒數檢查中：{now}, target_time_today={target_time_today}, last_sent={self.last_sent_date}")
+        logger.info(f"⏰ {self.__class__.__name__} 倒數檢查中：{now}, target_time_today={target_time_today}, last_sent={self.last_sent_date}")
 
         if now >= target_time_today and self.last_sent_date != now.date():
             if now.date() < self.target_date:
@@ -97,13 +97,13 @@ class Countdown(commands.Cog):
     # 在 loop 啟動前確保 bot ready
     @countdown_loop.before_loop
     async def before_countdown_loop(self):
-        logger.info("🔄 Countdown 倒數 loop 準備啟動，等待 bot ready...")
+        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 準備啟動，等待 bot ready...")
         await self.bot.wait_until_ready()
-        logger.info("🔄 Countdown 倒數 loop 已啟動")
+        logger.info(f"🔄 {self.__class__.__name__} 倒數 loop 已啟動")
 
     @countdown_loop.error
     async def countdown_loop_error(self, error):
-        logger.error(f"❌ 倒數 loop 發生錯誤: {error}")
+        logger.error(f"❌ {self.__class__.__name__} 倒數 loop 發生錯誤: {error}")
 
 async def setup(bot):
     cog = Countdown(bot)

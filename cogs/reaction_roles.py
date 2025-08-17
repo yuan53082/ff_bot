@@ -50,7 +50,7 @@ class ReactionRoles(commands.Cog):
                     logger.info(f"➕ 已分配身分組 {role.name} 給 {member.display_name}")
 
         except Exception as e:
-            logger.error(f"on_raw_reaction_add 發生錯誤: {e}")
+            logger.error(f"分配身分組時發生錯誤: {e}")
             traceback.print_exc()
 
     @commands.Cog.listener()
@@ -79,7 +79,7 @@ class ReactionRoles(commands.Cog):
                     logger.info(f"➖ 已移除身分組 {role.name} 從 {member.display_name}")
 
         except Exception as e:
-            logger.error(f"on_raw_reaction_remove 發生錯誤: {e}")
+            logger.error(f"移除身分組發生錯誤: {e}")
             traceback.print_exc()
 
 # Cog 載入入口
