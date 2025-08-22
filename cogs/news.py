@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import json
 import pytz
 
-CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
 logger = logging.getLogger("discord")
 DATA_FILE = "latest_news.json"
 tz = pytz.timezone("Asia/Taipei")

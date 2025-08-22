@@ -3,3 +3,5 @@
 __pycache__
 countdown.json
 latest_news.json
+earthquake_last.json
+earthquake_usage.json
