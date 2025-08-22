@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime
+from datetime import datetime, timedelta
 import aiohttp
 import json
 import os
@@ -12,7 +12,7 @@ USAGE_FILE = "earthquake_usage.json"
 CHANNEL_ID = int(os.getenv("NOTIFY_CHANNEL_ID"))
 API_KEY = os.getenv("CWA_API_KEY")  # 你在環境變數設定的授權碼
 CHECK_INTERVAL = 5
-TARGET_CITIES = ["新北市", "新竹縣", "臺中市", "花蓮縣"]
+TARGET_CITIES = ["新北市", "新竹縣", "臺中市"]
 tz = pytz.timezone("Asia/Taipei")
 logger = logging.getLogger("discord")
 
@@ -56,7 +56,8 @@ class Earthquake(commands.Cog):
             json.dump(self.usage, f, ensure_ascii=False, indent=2)
 
     async def fetch_earthquake(self):
-        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&sort=-OriginTime"
+        # 使用最新顯著有感地震報告 API
+        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&sort=-OriginTime&limit=1"
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
@@ -98,7 +99,6 @@ class Earthquake(commands.Cog):
         epicenter_info = latest_eq.get("EarthquakeInfo", {}).get("Epicenter", {})
         location_text = epicenter_info.get("Location", "")
 
-        # 每次檢查都印出 log
         logger.info(f"⏰ 檢查中：最新地震編號={eq_no}, 震央={location_text}, last_sent={self.last_eq_no}")
 
         # 判斷是否已發送過
@@ -106,28 +106,27 @@ class Earthquake(commands.Cog):
             logger.info("⚠️ 已發送過此地震訊息，跳過")
             return
 
-        # 找出指定城市的震度
-        city_results = []
-        intensities = latest_eq.get("Intensity", {}).get("ShakingArea", [])
-        for city in TARGET_CITIES:
-            for area in intensities:
-                if city in area.get("AreaName", ""):
-                    city_results.append(f"{city}{area.get('MaxIntensity', '未知')}級")
-                    break
+        # 取得各城市震度資訊
+        intensity_list = latest_eq.get("EarthquakeInfo", {}).get("SeismicIntensity", [])
+        city_intensity = {}
+        for intensity in intensity_list:
+            site_name = intensity.get("SiteName")
+            value = intensity.get("Intesity")
+            if site_name in TARGET_CITIES:
+                city_intensity[site_name] = value
 
-        # 發送訊息
+        # 建立 embed 訊息
         embed = discord.Embed(
-            title=f"🌏 地震速報 ({latest_eq.get('ReportColor', '綠色')})",
-            description=latest_eq.get("ReportContent", ""),
+            title=f"🌏 地震速報",
+            description=f"震央：{location_text}\n規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} {latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}",
             url=latest_eq.get("Web", ""),
             color=0xFF4500
         )
-        embed.add_field(name="震央", value=location_text, inline=False)
-        embed.add_field(name="深度 (km)", value=str(latest_eq.get("EarthquakeInfo", {}).get("FocalDepth", "")), inline=True)
-        magnitude = latest_eq.get("EarthquakeInfo", {}).get("EarthquakeMagnitude", {})
-        embed.add_field(name=f"{magnitude.get('MagnitudeType', '')}", value=str(magnitude.get("MagnitudeValue", "")), inline=True)
-        if city_results:
-            embed.add_field(name="主要城市震度", value="、".join(city_results), inline=False)
+
+        for city in TARGET_CITIES:
+            intensity = city_intensity.get(city, "無感")
+            embed.add_field(name=f"{city}震度", value=intensity, inline=True)
+
         embed.set_footer(text=f"來源: 中央氣象署 | 編號 {eq_no}")
 
         await channel.send(embed=embed)
@@ -164,30 +163,26 @@ class Earthquake(commands.Cog):
             return
 
         latest_eq = eq_list[0]
+        epicenter_info = latest_eq.get("EarthquakeInfo", {}).get("Epicenter", {})
+        location_text = epicenter_info.get("Location", "")
+
+        intensity_list = latest_eq.get("EarthquakeInfo", {}).get("SeismicIntensity", [])
+        city_intensity = {}
+        for intensity in intensity_list:
+            site_name = intensity.get("SiteName")
+            value = intensity.get("Intesity")
+            if site_name in TARGET_CITIES:
+                city_intensity[site_name] = value
+
         embed = discord.Embed(
             title=f"🌏 地震速報",
-            description=latest_eq.get("ReportContent", ""),
+            description=f"震央：{location_text}\n規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} {latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}",
             url=latest_eq.get("Web", ""),
             color=0xFF4500
         )
-        epicenter_info = latest_eq.get("EarthquakeInfo", {}).get("Epicenter", {})
-        location_text = epicenter_info.get("Location", "")
-        embed.add_field(name="震央", value=location_text, inline=False)
-        embed.add_field(name="深度 (km)", value=str(latest_eq.get("EarthquakeInfo", {}).get("FocalDepth", "")), inline=True)
-        magnitude = latest_eq.get("EarthquakeInfo", {}).get("EarthquakeMagnitude", {})
-        embed.add_field(name=f"{magnitude.get('MagnitudeType', '')}", value=str(magnitude.get("MagnitudeValue", "")), inline=True)
-
-        # 同樣加城市震度
-        city_results = []
-        intensities = latest_eq.get("Intensity", {}).get("ShakingArea", [])
         for city in TARGET_CITIES:
-            for area in intensities:
-                if city in area.get("AreaName", ""):
-                    city_results.append(f"{city}{area.get('MaxIntensity', '未知')}級")
-                    break
-        if city_results:
-            embed.add_field(name="主要城市震度", value="、".join(city_results), inline=False)
-
+            intensity = city_intensity.get(city, "無感")
+            embed.add_field(name=f"{city}震度", value=intensity, inline=True)
         embed.set_footer(text=f"來源: 中央氣象署 | 編號 {latest_eq.get('EarthquakeNo')}")
         await ctx.send(embed=embed)
 
