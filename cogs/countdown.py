@@ -7,7 +7,7 @@ import pytz
 import logging
 
 CONFIG_FILE = "countdown.json"
-CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("NOTIFY_CHANNEL_ID"))
 TARGET_HOUR = 10
 TARGET_MINUTE = 0
 tz = pytz.timezone("Asia/Taipei")

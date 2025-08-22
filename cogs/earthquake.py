@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime, timedelta
+from datetime import datetime
 import aiohttp
 import json
 import os
@@ -9,10 +9,10 @@ import logging
 
 CONFIG_FILE = "earthquake_last.json"
 USAGE_FILE = "earthquake_usage.json"
-CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
+CHANNEL_ID = int(os.getenv("NOTIFY_CHANNEL_ID"))
 API_KEY = os.getenv("CWA_API_KEY")  # 你在環境變數設定的授權碼
 CHECK_INTERVAL = 5
-TARGET_CITIES = ["新北", "新竹", "台中", "花蓮"]
+TARGET_CITIES = ["新北市", "新竹縣", "臺中市", "花蓮縣"]
 tz = pytz.timezone("Asia/Taipei")
 logger = logging.getLogger("discord")
 
@@ -56,7 +56,7 @@ class Earthquake(commands.Cog):
             json.dump(self.usage, f, ensure_ascii=False, indent=2)
 
     async def fetch_earthquake(self):
-        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&AreaName=&sort=OriginTime"
+        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&sort=-OriginTime"
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
@@ -101,19 +101,23 @@ class Earthquake(commands.Cog):
         # 每次檢查都印出 log
         logger.info(f"⏰ 檢查中：最新地震編號={eq_no}, 震央={location_text}, last_sent={self.last_eq_no}")
 
-        # # 判斷是否在目標城市
-        # if not any(city in location_text for city in TARGET_CITIES):
-        #     logger.info("⚠️ 不在目標城市範圍，跳過")
-        #     return
-
         # 判斷是否已發送過
         if eq_no == self.last_eq_no:
             logger.info("⚠️ 已發送過此地震訊息，跳過")
             return
 
+        # 找出指定城市的震度
+        city_results = []
+        intensities = latest_eq.get("Intensity", {}).get("ShakingArea", [])
+        for city in TARGET_CITIES:
+            for area in intensities:
+                if city in area.get("AreaName", ""):
+                    city_results.append(f"{city}{area.get('MaxIntensity', '未知')}級")
+                    break
+
         # 發送訊息
         embed = discord.Embed(
-            title=f"🌏 地震速報",
+            title=f"🌏 地震速報 ({latest_eq.get('ReportColor', '綠色')})",
             description=latest_eq.get("ReportContent", ""),
             url=latest_eq.get("Web", ""),
             color=0xFF4500
@@ -122,6 +126,8 @@ class Earthquake(commands.Cog):
         embed.add_field(name="深度 (km)", value=str(latest_eq.get("EarthquakeInfo", {}).get("FocalDepth", "")), inline=True)
         magnitude = latest_eq.get("EarthquakeInfo", {}).get("EarthquakeMagnitude", {})
         embed.add_field(name=f"{magnitude.get('MagnitudeType', '')}", value=str(magnitude.get("MagnitudeValue", "")), inline=True)
+        if city_results:
+            embed.add_field(name="主要城市震度", value="、".join(city_results), inline=False)
         embed.set_footer(text=f"來源: 中央氣象署 | 編號 {eq_no}")
 
         await channel.send(embed=embed)
@@ -159,7 +165,7 @@ class Earthquake(commands.Cog):
 
         latest_eq = eq_list[0]
         embed = discord.Embed(
-            title=f"🌏 地震速報 ({latest_eq.get('ReportColor', '綠色')})",
+            title=f"🌏 地震速報",
             description=latest_eq.get("ReportContent", ""),
             url=latest_eq.get("Web", ""),
             color=0xFF4500
@@ -170,6 +176,18 @@ class Earthquake(commands.Cog):
         embed.add_field(name="深度 (km)", value=str(latest_eq.get("EarthquakeInfo", {}).get("FocalDepth", "")), inline=True)
         magnitude = latest_eq.get("EarthquakeInfo", {}).get("EarthquakeMagnitude", {})
         embed.add_field(name=f"{magnitude.get('MagnitudeType', '')}", value=str(magnitude.get("MagnitudeValue", "")), inline=True)
+
+        # 同樣加城市震度
+        city_results = []
+        intensities = latest_eq.get("Intensity", {}).get("ShakingArea", [])
+        for city in TARGET_CITIES:
+            for area in intensities:
+                if city in area.get("AreaName", ""):
+                    city_results.append(f"{city}{area.get('MaxIntensity', '未知')}級")
+                    break
+        if city_results:
+            embed.add_field(name="主要城市震度", value="、".join(city_results), inline=False)
+
         embed.set_footer(text=f"來源: 中央氣象署 | 編號 {latest_eq.get('EarthquakeNo')}")
         await ctx.send(embed=embed)
 
