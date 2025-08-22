@@ -9,10 +9,10 @@ import logging
 
 CONFIG_FILE = "earthquake_last.json"
 USAGE_FILE = "earthquake_usage.json"
-CHANNEL_ID = int(os.getenv("LAB_CHANNEL_ID"))
-API_KEY = os.getenv("CWB_API_KEY")  # 你在環境變數設定的授權碼
+CHANNEL_ID = int(os.getenv("CHAT_CHANNEL_ID"))
+API_KEY = os.getenv("CWA_API_KEY")  # 你在環境變數設定的授權碼
 CHECK_INTERVAL = 5
-TARGET_CITIES = ["新北", "新竹", "台中"]
+TARGET_CITIES = ["新北", "新竹", "台中", "花蓮"]
 tz = pytz.timezone("Asia/Taipei")
 logger = logging.getLogger("discord")
 
@@ -56,7 +56,7 @@ class Earthquake(commands.Cog):
             json.dump(self.usage, f, ensure_ascii=False, indent=2)
 
     async def fetch_earthquake(self):
-        url = f"https://opendata.cwb.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&AreaName=&sort=OriginTime"
+        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={API_KEY}&AreaName=&sort=OriginTime"
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
@@ -101,10 +101,10 @@ class Earthquake(commands.Cog):
         # 每次檢查都印出 log
         logger.info(f"⏰ 檢查中：最新地震編號={eq_no}, 震央={location_text}, last_sent={self.last_eq_no}")
 
-        # 判斷是否在目標城市
-        if not any(city in location_text for city in TARGET_CITIES):
-            logger.info("⚠️ 不在目標城市範圍，跳過")
-            return
+        # # 判斷是否在目標城市
+        # if not any(city in location_text for city in TARGET_CITIES):
+        #     logger.info("⚠️ 不在目標城市範圍，跳過")
+        #     return
 
         # 判斷是否已發送過
         if eq_no == self.last_eq_no:
@@ -113,7 +113,7 @@ class Earthquake(commands.Cog):
 
         # 發送訊息
         embed = discord.Embed(
-            title=f"🌏 地震速報 ({latest_eq.get('ReportColor', '綠色')})",
+            title=f"🌏 地震速報",
             description=latest_eq.get("ReportContent", ""),
             url=latest_eq.get("Web", ""),
             color=0xFF4500
