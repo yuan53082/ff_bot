@@ -12,7 +12,7 @@ USAGE_FILE = "earthquake_usage.json"
 CHANNEL_ID = int(os.getenv("NOTIFY_CHANNEL_ID"))
 API_KEY = os.getenv("CWA_API_KEY")  # 你在環境變數設定的授權碼
 CHECK_INTERVAL = 5
-TARGET_CITIES = ["新北市", "新竹縣", "臺中市"]
+TARGET_CITIES = ["新北市", "新竹市", "臺中市"]
 tz = pytz.timezone("Asia/Taipei")
 logger = logging.getLogger("discord")
 
@@ -107,28 +107,50 @@ class Earthquake(commands.Cog):
             return
 
         # 取得各城市震度資訊
-        intensity_list = latest_eq.get("EarthquakeInfo", {}).get("SeismicIntensity", [])
+        intensity_info = latest_eq.get("Intensity", {}).get("ShakingArea", [])
         city_intensity = {}
-        for intensity in intensity_list:
-            site_name = intensity.get("SiteName")
-            value = intensity.get("Intesity")
-            if site_name in TARGET_CITIES:
-                city_intensity[site_name] = value
-
+        
+        for area in intensity_info:
+            county_names = area.get("CountyName", "")
+            area_value = area.get("AreaIntensity")
+            for c in county_names.split("、"):
+                c = c.strip()
+                for target in TARGET_CITIES:
+                    if target.replace("台","臺") == c.replace("台","臺"):
+                        city_intensity[target] = area_value
+        
+        # 取得報告顏色
+        report_color_name = latest_eq.get("ReportColor", "綠色")
+        color_map = {
+            "綠色": 0x00FF00,
+            "黃色": 0xFFFF00,
+            "紅色": 0xFF0000
+        }
+        embed_color = color_map.get(report_color_name, 0xFF4500)
+        
+        # 取得地震圖
+        report_image = latest_eq.get("ReportImageURI", "")
+        
         # 建立 embed 訊息
         embed = discord.Embed(
-            title=f"🌏 地震速報",
-            description=f"震央：{location_text}\n規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} {latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}",
+            title=f"🌏 地震速報 ({report_color_name})",
+            description=(
+                f"震央：{location_text}\n"
+                f"規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} "
+                f"{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}"
+            ),
             url=latest_eq.get("Web", ""),
-            color=0xFF4500
+            color=embed_color
         )
-
+        
         for city in TARGET_CITIES:
             intensity = city_intensity.get(city, "無感")
             embed.add_field(name=f"{city}震度", value=intensity, inline=True)
-
+        
+        if report_image:
+            embed.set_image(url=report_image)
+        
         embed.set_footer(text=f"來源: 中央氣象署 | 編號 {eq_no}")
-
         await channel.send(embed=embed)
         self.save_last_eq(eq_no)
 
@@ -163,27 +185,57 @@ class Earthquake(commands.Cog):
             return
 
         latest_eq = eq_list[0]
+        eq_no = latest_eq.get("EarthquakeNo")
         epicenter_info = latest_eq.get("EarthquakeInfo", {}).get("Epicenter", {})
         location_text = epicenter_info.get("Location", "")
 
-        intensity_list = latest_eq.get("EarthquakeInfo", {}).get("SeismicIntensity", [])
-        city_intensity = {}
-        for intensity in intensity_list:
-            site_name = intensity.get("SiteName")
-            value = intensity.get("Intesity")
-            if site_name in TARGET_CITIES:
-                city_intensity[site_name] = value
+        # 取得報告顏色
+        report_color_name = latest_eq.get("ReportColor", "綠色")
 
+        # 根據報告顏色設定 embed 顏色
+        color_map = {
+            "綠色": 0x00FF00,
+            "黃色": 0xFFFF00,
+            "紅色": 0xFF0000
+        }
+        embed_color = color_map.get(report_color_name, 0xFF4500)  # 預設橘色
+
+        # 取得各城市震度資訊
+        intensity_info = latest_eq.get("Intensity", {}).get("ShakingArea", [])
+        city_intensity = {}
+
+        for area in intensity_info:
+            county_names = area.get("CountyName", "")
+            area_value = area.get("AreaIntensity")
+            for c in county_names.split("、"):
+                c = c.strip()
+                for target in TARGET_CITIES:
+                    if target.replace("台","臺") == c.replace("台","臺"):
+                        city_intensity[target] = area_value
+
+        # 取得地震圖
+        report_image = latest_eq.get("ReportImageURI", "")
+
+        # 建立 embed 訊息
         embed = discord.Embed(
-            title=f"🌏 地震速報",
-            description=f"震央：{location_text}\n規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} {latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}",
+            title=f"🌏 地震速報 ({report_color_name})",
+            description=(
+                f"震央：{location_text}\n"
+                f"規模：{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeValue')} "
+                f"{latest_eq.get('EarthquakeInfo', {}).get('EarthquakeMagnitude', {}).get('MagnitudeType')}"
+            ),
             url=latest_eq.get("Web", ""),
-            color=0xFF4500
+            color=embed_color
         )
+
         for city in TARGET_CITIES:
             intensity = city_intensity.get(city, "無感")
             embed.add_field(name=f"{city}震度", value=intensity, inline=True)
-        embed.set_footer(text=f"來源: 中央氣象署 | 編號 {latest_eq.get('EarthquakeNo')}")
+
+        if report_image:
+            embed.set_image(url=report_image)
+
+        embed.set_footer(text=f"來源: 中央氣象署 | 編號 {eq_no}")
         await ctx.send(embed=embed)
 
 
